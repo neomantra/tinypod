@@ -103,29 +103,56 @@ func TestTones(t *testing.T) {
 	}
 }
 
-func TestSilentPaces(t *testing.T) {
-	var out Silent
+func TestOutputPaces(t *testing.T) {
+	out := NewOutput()
 	out.SetSampleFrequency(8000)
+	out.Enable(true)
 	start := time.Now()
 	for range 4 {
-		out.WriteStereo(make([]uint32, 200))
+		if _, err := out.WriteStereo(make([]uint32, 200)); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if el := time.Since(start); el < 80*time.Millisecond {
 		t.Fatalf("800 frames at 8 kHz took %v", el)
 	}
 }
 
+func TestOutputUnpacks(t *testing.T) {
+	rec := &recorder{}
+	out := &Output{Player: rec}
+	out.SetSampleFrequency(22050)
+	out.WriteStereo([]uint32{uint32(16384) | uint32(0x8000)<<16, 0})
+	if !slices.Equal(rec.samples, []int16{16384, -32768, 0, 0}) || rec.rate != 22050 || rec.channels != 2 {
+		t.Fatalf("samples %v rate %d channels %d", rec.samples, rec.rate, rec.channels)
+	}
+}
+
+// recorder is an audio.Player that keeps what it was given.
+type recorder struct {
+	rate, channels int
+	samples        []int16
+}
+
+func (r *recorder) SetSampleRate(hz, ch int) error { r.rate, r.channels = hz, ch; return nil }
+func (r *recorder) Write(s []int16) (int, error) {
+	r.samples = append(r.samples, s...)
+	return len(s), nil
+}
+func (r *recorder) Enable(bool)  {}
+func (r *recorder) Close() error { return nil }
+
 type display struct{ frames int }
 
-// counting counts the audio buffers written to a Silent output.
+// counting counts the audio buffers written to an output.
 type counting struct {
-	Silent
+	*Output
 	n atomic.Int32
 }
 
 func (c *counting) WriteStereo(b []uint32) (int, error) {
 	c.n.Add(1)
-	return c.Silent.WriteStereo(b)
+	return c.Output.WriteStereo(b)
 }
 
 func (*display) Size() (int16, int16)              { return 128, 64 }
@@ -165,7 +192,7 @@ func TestModelKeys(t *testing.T) {
 // that it draws and plays.
 func TestRun(t *testing.T) {
 	d := &display{}
-	out := &counting{}
+	out := &counting{Output: NewOutput()}
 	wrapped, m, err := New(tinypod.Config{Display: d, Theme: tinypod.MonoTheme(), Output: out, Storage: Tones()})
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +224,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestActions(t *testing.T) {
-	wrapped, _, err := New(tinypod.Config{Display: &display{}, Theme: tinypod.MonoTheme(), Output: &Silent{}, Storage: Tones()})
+	wrapped, _, err := New(tinypod.Config{Display: &display{}, Theme: tinypod.MonoTheme(), Output: NewOutput(), Storage: Tones()})
 	if err != nil {
 		t.Fatal(err)
 	}

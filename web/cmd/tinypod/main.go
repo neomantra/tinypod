@@ -12,7 +12,7 @@ func main() {
 	selected := browser.Configure(browser.Config{
 		Title: "tinypod", Source: "https://github.com/hybridgroup/tinypod",
 		Description: "The TinyGo music player, running in your browser. The same Go code draws on a canvas instead of an OLED.",
-		Note:        "Arrows move, Enter opens, Escape goes back, Space plays and pauses. + and - set volume, n and p skip songs. Songs play silently; this preview has no audio output.",
+		Note:        "Arrows move, Enter opens, Escape goes back, Space plays and pauses. + and - set volume, n and p skip songs. Click or press a key once to let the browser start the sound.",
 		Screens: []browser.Screen{
 			{ID: "color", Label: "Color TFT · 320 × 240", Width: 320, Height: 240},
 			{ID: "oled", Label: "Monochrome OLED · 128 × 64", Width: 128, Height: 64, Monochrome: true},
@@ -22,10 +22,12 @@ func main() {
 	if selected.Screen.Monochrome {
 		theme = tinypod.MonoTheme()
 	}
+	w, h := selected.Screen.Width, selected.Screen.Height
+	display := browser.NewCanvasDisplay("display", w, h)
 	leds := browser.NewLEDs("led")
 	model, m, err := web.New(tinypod.Config{
-		Display: browser.NewCanvasDisplay("display", selected.Screen.Width, selected.Screen.Height),
-		Theme:   theme, Output: &web.Silent{}, Storage: web.DefaultStorage(), LED: leds, LEDCount: leds.Len(),
+		Display: display,
+		Theme:   theme, Output: web.NewOutput(), Storage: web.DefaultStorage(), LED: leds, LEDCount: leds.Len(),
 	})
 	if err != nil {
 		browser.Stopped(err)

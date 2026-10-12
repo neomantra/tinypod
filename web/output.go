@@ -1,32 +1,40 @@
 package web
 
 import (
-	"time"
+	"github.com/NimbleMarkets/booba-shim/audio"
 )
 
-// Silent is a tinyplayer.Output that plays nothing but takes as long as the
-// audio would, so the progress bar and the LEDs follow the song.
-type Silent struct {
-	rate uint32
-	next time.Time
+// Output plays tinyplayer's stereo frames through an audio.Player.
+type Output struct {
+	Player  audio.Player
+	samples []int16
 }
 
-func (s *Silent) SetSampleFrequency(freq uint32) error {
-	s.rate = freq
-	return nil
+// NewOutput plays through Web Audio, or keeps time silently where there is
+// none, so the progress bar and the LEDs follow the song either way.
+func NewOutput() *Output {
+	p, err := audio.New(audio.Options{})
+	if err != nil {
+		p = audio.NewSilent()
+	}
+	return &Output{Player: p}
 }
 
-func (s *Silent) Enable(bool) {}
+func (o *Output) SetSampleFrequency(freq uint32) error {
+	return o.Player.SetSampleRate(int(freq), 2)
+}
 
-func (s *Silent) WriteStereo(b []uint32) (int, error) {
-	if s.rate == 0 {
-		return len(b), nil
+func (o *Output) Enable(on bool) {
+	o.Player.Enable(on)
+}
+
+// WriteStereo unpacks the frames, left in the low half and right in the high
+// half, into interleaved samples.
+func (o *Output) WriteStereo(b []uint32) (int, error) {
+	o.samples = o.samples[:0]
+	for _, f := range b {
+		o.samples = append(o.samples, int16(f), int16(f>>16))
 	}
-	now := time.Now()
-	if s.next.Before(now) {
-		s.next = now
-	}
-	s.next = s.next.Add(time.Duration(len(b)) * time.Second / time.Duration(s.rate))
-	time.Sleep(s.next.Sub(now))
-	return len(b), nil
+	_, err := o.Player.Write(o.samples)
+	return len(b), err
 }

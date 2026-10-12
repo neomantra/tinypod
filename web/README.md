@@ -5,6 +5,8 @@ This module runs tinypod on a canvas through the shared
 and [Booba](https://github.com/NimbleMarkets/go-booba). The buttons come from
 its Go help map. Two page LEDs show the device LED output.
 
+To run it locally:
+
 ```sh
 make -C web serve
 ```
@@ -27,7 +29,7 @@ TinyBubbles Hello World checks that path in CI.
 
 - `web.go` runs tinypod and maps its keys to events.
 - `storage.go`, `music.go`, and `tones.go` supply songs.
-- `output.go` supplies silent playback timing.
+- `output.go` adapts tinyplayer's output to the booba-shim audio player.
 - `cmd/tinypod/main.go` chooses display presets and connects the app to the harness.
 
 The canvas display, LEDs, page, key encoder, actions wrapper, licenses, and build
@@ -35,7 +37,19 @@ rules come from the shared package and tool. The Makefile generates assets at
 build time; there are no local copies of the harness source files.
 
 Put small WAV files in [music](./music) and rebuild. Without WAV files the app
-uses demo tones. Playback is silent; this port does not add Web Audio.
+uses demo tones.
+
+## Audio
+
+`web.Output` hands tinyplayer's stereo frames to
+[`booba-shim/audio`](https://github.com/NimbleMarkets/booba-shim/tree/main/audio),
+which plays them through Web Audio. It schedules chunks back to back at the
+song's sample rate, lets the browser resample, and blocks once the queue is
+300 ms ahead of the audio clock, so the deck keeps time and the progress bar
+and LEDs follow the sound. Pause drains the queued sound and suspends the
+AudioContext. Browsers only start sound after a click or key press, so the
+first button press on the page also unlocks the audio. Where there is no Web
+Audio, the silent player from the same package keeps the same timing.
 
 The Bubble Tea WASM replacement stays in `web/go.mod`. Go does not inherit
 replacements from dependencies, so this module must pin it explicitly.
