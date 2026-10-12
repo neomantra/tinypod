@@ -142,6 +142,11 @@ func (r *recorder) Write(s []int16) (int, error) {
 func (r *recorder) Enable(bool)  {}
 func (r *recorder) Close() error { return nil }
 
+var (
+	white = color.RGBA{255, 255, 255, 255}
+	black = color.RGBA{0, 0, 0, 255}
+)
+
 type display struct{ frames int }
 
 // counting counts the audio buffers written to an output.
@@ -283,4 +288,88 @@ func snapshot(t *testing.T, cmd tea.Cmd) actions.Snapshot {
 		t.Fatal(err)
 	}
 	return s
+}
+
+type sized struct {
+	display
+	w, h   int16
+	pixels map[[2]int16]color.RGBA
+}
+
+func (d *sized) Size() (int16, int16) { return d.w, d.h }
+func (d *sized) SetPixel(x, y int16, c color.RGBA) {
+	if d.pixels == nil {
+		d.pixels = map[[2]int16]color.RGBA{}
+	}
+	d.pixels[[2]int16{x, y}] = c
+}
+
+func TestPanel(t *testing.T) {
+	out := &sized{w: 512, h: 256}
+	d := NewPanelDisplay(out, 128, 64)
+	p := d.Panel()
+	if !p.on || p.mode != 0 {
+		t.Fatalf("after init: on %v mode %d", p.on, p.mode)
+	}
+	d.SetPixel(0, 0, white)
+	d.SetPixel(127, 63, white)
+	d.SetPixel(40, 9, white)
+	if err := d.Display(); err != nil {
+		t.Fatal(err)
+	}
+	for _, px := range [][2]int{{0, 0}, {127, 63}, {40, 9}} {
+		if !p.Pixel(px[0], px[1]) {
+			t.Errorf("pixel %v off", px)
+		}
+	}
+	if p.Pixel(1, 0) || p.Pixel(40, 10) {
+		t.Error("stray pixel on")
+	}
+	lit := func() int {
+		n := 0
+		for _, c := range out.pixels {
+			if c != off {
+				n++
+			}
+		}
+		return n
+	}
+	if n := lit(); n != 3*(PanelScale-1)*(PanelScale-1) || out.frames != 1 {
+		t.Fatalf("lit %d frames %d", n, out.frames)
+	}
+	// Clear the pixel again and check the screen follows.
+	d.SetPixel(40, 9, black)
+	d.Display()
+	if n := lit(); n != 2*(PanelScale-1)*(PanelScale-1) {
+		t.Fatalf("lit %d after clear", n)
+	}
+	// Invert and display off through the driver's commands.
+	d.Command(0xA7)
+	if !p.Pixel(1, 0) || p.Pixel(0, 0) {
+		t.Fatal("invert")
+	}
+	d.Command(0xAE)
+	if p.Pixel(1, 0) {
+		t.Fatal("display off")
+	}
+	// Contrast changes the lit color.
+	bright := p.On()
+	d.Command(0x81)
+	d.Command(0x00)
+	if dim := p.On(); dim.B >= bright.B {
+		t.Fatalf("contrast: dim %v bright %v", dim, bright)
+	}
+}
+
+func TestPanelControlByte(t *testing.T) {
+	p := NewPanel(128, 64)
+	// Co=1 control bytes mix commands and data in one write.
+	p.Tx(0x3C, []byte{0x80, 0xAF, 0x80, 0x21, 0x80, 5, 0x80, 7, 0xC0, 0xFF, 0x40, 1, 2}, nil)
+	if !p.Pixel(5, 0) || !p.Pixel(5, 7) || !p.Pixel(6, 0) || p.Pixel(6, 1) || !p.Pixel(7, 1) {
+		t.Fatal("data after mixed control bytes")
+	}
+	// The window wraps back to its start.
+	if p.col != 5 || p.page != 1 {
+		t.Fatalf("cursor %d,%d", p.col, p.page)
+	}
 }

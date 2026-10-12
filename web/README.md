@@ -30,6 +30,7 @@ TinyBubbles Hello World checks that path in CI.
 - `web.go` runs tinypod and maps its keys to events.
 - `storage.go`, `music.go`, and `tones.go` supply songs.
 - `output.go` adapts tinyplayer's output to the booba-shim audio player.
+- `ssd1306.go` simulates an SSD1306 panel behind the real ssd1306 driver.
 - `cmd/tinypod/main.go` chooses display presets and connects the app to the harness.
 
 The canvas display, LEDs, page, key encoder, actions wrapper, licenses, and build
@@ -38,6 +39,15 @@ build time; there are no local copies of the harness source files.
 
 Put small WAV files in [music](./music) and rebuild. Without WAV files the app
 uses demo tones.
+
+## Simulated SSD1306
+
+The `SSD1306 over I2C` screen runs the same code path as the XIAO board. The
+ssd1306 driver and tinypod's chunked `Display` write to `web.Panel`, a
+`drivers.I2C` that decodes the control bytes, the column and page windows and
+the addressing mode into the panel's 1 bit memory. The page shows that memory
+with big dots and gaps, like the OLED. Invert, display off and contrast work
+through the driver's commands. Use `?screen=ssd1306` on the URL to pick it.
 
 ## Audio
 
