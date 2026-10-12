@@ -18,6 +18,8 @@ Here are a few built-in supported device configurations:
 
 See [DEVICES](./DEVICES.md) for more information and how to add your own.
 
+tinypod also runs in a web browser as WebAssembly, with the screen on a canvas and the buttons on the page. See [web](./web/README.md).
+
 ## Build and flash
 
 ```

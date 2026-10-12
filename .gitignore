@@ -9,3 +9,6 @@
 # Go test output
 *.test
 *.out
+
+# web build output
+web/build/

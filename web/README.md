@@ -1,0 +1,45 @@
+# tinypod in the browser
+
+This module runs tinypod on a canvas through the shared
+[TinyBubbles browser harness](https://github.com/NimbleTerminal/TinyBubbles/tree/main/web)
+and [Booba](https://github.com/NimbleMarkets/go-booba). The buttons come from
+its Go help map. Two page LEDs show the device LED output.
+
+```sh
+make -C web serve
+```
+
+Open <http://127.0.0.1:8080>. Use `PORT=8089` if port 8080 is occupied.
+Pick a display, use the buttons, or focus the canvas for keyboard input.
+`make -C web build` writes the static site to `web/build`.
+`make -C web test` checks the app model and its WASM main.
+
+The web module pins the harness to a TinyBubbles release in `go.mod`.
+It selects Go 1.26.8 and needs Python 3. Node.js is needed only when running the
+shared harness's key encoder tests. The root tinypod module is unchanged.
+
+Use standard Go for this app's WASM build. TinyGo 0.43 currently fails in
+`tinygo.org/x/drivers/internal/legacy` because its pin configuration helpers
+have no WASM implementation. The shared harness itself compiles with TinyGo;
+TinyBubbles Hello World checks that path in CI.
+
+## App code
+
+- `web.go` runs tinypod and maps its keys to events.
+- `storage.go`, `music.go`, and `tones.go` supply songs.
+- `output.go` supplies silent playback timing.
+- `cmd/tinypod/main.go` chooses display presets and connects the app to the harness.
+
+The canvas display, LEDs, page, key encoder, actions wrapper, licenses, and build
+rules come from the shared package and tool. The Makefile generates assets at
+build time; there are no local copies of the harness source files.
+
+Put small WAV files in [music](./music) and rebuild. Without WAV files the app
+uses demo tones. Playback is silent; this port does not add Web Audio.
+
+The Bubble Tea WASM replacement stays in `web/go.mod`. Go does not inherit
+replacements from dependencies, so this module must pin it explicitly.
+
+Hidden browser tabs throttle timers to about once per second. This slows every
+`time.Sleep` in the Go program, including playback and LEDs. Keep the tab visible
+when checking timing.

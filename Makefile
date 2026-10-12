@@ -12,4 +12,7 @@ smoketest:
 	$(TINYGO) build -o test.uf2 -size=short -target=gopher-badge $(TAGS) ./devices/gopher-badge
 	@rm -f test.bin test.uf2
 
-.PHONY: test smoketest
+web:
+	$(MAKE) -C web test build
+
+.PHONY: test smoketest web
