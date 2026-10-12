@@ -5,7 +5,9 @@ This module runs tinypod on a canvas through the shared
 and [Booba](https://github.com/NimbleMarkets/go-booba). The buttons come from
 its Go help map. Two page LEDs show the device LED output.
 
-To run it locally:
+The `pages` workflow builds the site on every push to main and publishes it at
+<https://hybridgroup.github.io/tinypod/>. Turn on GitHub Pages with the
+GitHub Actions source in the repository settings once. To run it locally:
 
 ```sh
 make -C web serve

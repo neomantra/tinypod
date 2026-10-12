@@ -24,3 +24,14 @@ jobs:
         run: make test
       - name: Run TinyGo smoke tests
         run: make smoketest
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: web/go.mod
+          cache-dependency-path: web/go.sum
+      - name: Test and build the web site
+        run: make -C web test build
